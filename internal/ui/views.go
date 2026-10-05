@@ -70,10 +70,10 @@ func PrintWorkspaceTable(stats *cleaner.SystemStats) {
 func PrintConversationList(convs []*cleaner.Conversation, max int) {
 	fmt.Println(Colorize(Bold+White, "\n  Conversation Details\n"))
 
-	header := fmt.Sprintf("  %-38s %-32s %-10s %-12s %-10s",
-		"Conversation ID", "Title", "Size", "Modified", "Status")
+	header := fmt.Sprintf("  %-38s %-28s %-26s %-10s %-10s %-8s",
+		"Conversation ID", "Title", "Workspace", "Size", "Modified", "Status")
 	fmt.Println(Colorize(Bold, header))
-	fmt.Println("  " + Colorize(Gray, strings.Repeat("─", 108)))
+	fmt.Println("  " + Colorize(Gray, strings.Repeat("─", 126)))
 
 	displayList := convs
 	if max > 0 && len(convs) > max {
@@ -94,11 +94,21 @@ func PrintConversationList(convs []*cleaner.Conversation, max int) {
 		if title == "" {
 			title = "(No Title)"
 		}
-		title = TruncateString(title, 30)
+		title = TruncateString(title, 26)
 
-		line := fmt.Sprintf("  %-38s %-32s %-10s %-12s %s",
+		ws := c.PrimaryWorkspace
+		if ws == "" {
+			ws = "-"
+		} else {
+			// Strip leading /var/www/ if present for cleaner display or truncate
+			ws = strings.TrimPrefix(ws, "/var/www/")
+			ws = TruncateString(ws, 24)
+		}
+
+		line := fmt.Sprintf("  %-38s %-28s %-26s %-10s %-10s %s",
 			c.ID,
 			title,
+			ws,
 			FormatBytes(c.TotalDiskSize()),
 			FormatRelativeTime(c.LastModified),
 			status,

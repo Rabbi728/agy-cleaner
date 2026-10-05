@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -86,9 +87,23 @@ func handleList(scanner *cleaner.Scanner, args []string) {
 	fs := flag.NewFlagSet("list", flag.ExitOnError)
 	workspace := fs.String("workspace", "", "Filter by workspace path")
 	fs.StringVar(workspace, "w", "", "Filter by workspace path (shorthand)")
+	search := fs.String("search", "", "Search by title or conversation ID")
+	fs.StringVar(search, "s", "", "Search (shorthand)")
+	limit := fs.Int("limit", 50, "Limit number of conversations to display")
+	fs.IntVar(limit, "n", 50, "Limit (shorthand)")
 	showAll := fs.Bool("all", false, "Show detailed list of individual conversations")
 	jsonOutput := fs.Bool("json", false, "Output results in JSON format")
 	_ = fs.Parse(args)
+
+	// If extra argument like 'conversations' or 'convs' is given
+	if fs.NArg() > 0 {
+		first := strings.ToLower(fs.Arg(0))
+		if first == "conversations" || first == "convs" || first == "all" {
+			*showAll = true
+		} else if *workspace == "" {
+			*workspace = fs.Arg(0)
+		}
+	}
 
 	convMap, stats, err := scanner.ScanAll()
 	if err != nil {
@@ -105,18 +120,28 @@ func handleList(scanner *cleaner.Scanner, args []string) {
 
 	ui.PrintSystemSummary(stats)
 
-	if *showAll || *workspace != "" {
+	if *showAll || *workspace != "" || *search != "" {
 		var list []*cleaner.Conversation
+		searchLower := strings.ToLower(*search)
 		for _, conv := range convMap {
-			if *workspace == "" || strings.Contains(strings.ToLower(conv.PrimaryWorkspace), strings.ToLower(*workspace)) {
+			wsMatch := *workspace == "" || strings.Contains(strings.ToLower(conv.PrimaryWorkspace), strings.ToLower(*workspace))
+			searchMatch := *search == "" || strings.Contains(strings.ToLower(conv.Title), searchLower) || strings.Contains(strings.ToLower(conv.ID), searchLower) || strings.Contains(strings.ToLower(conv.PrimaryWorkspace), searchLower)
+			if wsMatch && searchMatch {
 				list = append(list, conv)
 			}
 		}
-		ui.PrintConversationList(list, 100)
+
+		// Sort newest first
+		sort.Slice(list, func(i, j int) bool {
+			return list[i].LastModified.After(list[j].LastModified)
+		})
+
+		ui.PrintConversationList(list, *limit)
 	} else {
 		ui.PrintWorkspaceTable(stats)
 		fmt.Println("  Tip: Run `agy-cleaner list --all` to view individual conversations,")
-		fmt.Println("       or `agy-cleaner clean -w <name>` to delete by workspace.")
+		fmt.Println("       or `agy-cleaner list -w <name>` to filter conversations by workspace,")
+		fmt.Println("       or `agy-cleaner list -s <search>` to search by title/ID.")
 	}
 }
 
