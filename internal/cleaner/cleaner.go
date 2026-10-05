@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	_ "github.com/mattn/go-sqlite3"
+	_ "modernc.org/sqlite"
 )
 
 type Cleaner struct {
@@ -168,7 +168,7 @@ func (c *Cleaner) ExecuteClean(filter CleanFilter) (*CleanResult, error) {
 	// 2. Delete database records in conversation_summaries.db
 	dbPath := c.Scanner.DBPath()
 	if _, err := os.Stat(dbPath); err == nil {
-		db, err := sql.Open("sqlite3", dbPath+"?_busy_timeout=10000")
+		db, err := sql.Open("sqlite", dbPath+"?_busy_timeout=10000")
 		if err == nil {
 			defer db.Close()
 

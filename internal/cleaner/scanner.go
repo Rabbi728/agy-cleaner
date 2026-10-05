@@ -8,10 +8,9 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
-	"syscall"
 	"time"
 
-	_ "github.com/mattn/go-sqlite3"
+	_ "modernc.org/sqlite"
 )
 
 type Scanner struct {
@@ -79,19 +78,7 @@ func (s *Scanner) IsConversationActive(convID string) bool {
 	}
 	defer file.Close()
 
-	// Try to acquire non-blocking exclusive lock
-	err = syscall.Flock(int(file.Fd()), syscall.LOCK_EX|syscall.LOCK_NB)
-	if err != nil {
-		// EWOULDBLOCK or EAGAIN means another process holds the lock!
-		if err == syscall.EWOULDBLOCK || err == syscall.EAGAIN {
-			return true
-		}
-	} else {
-		// Lock was acquired successfully, meaning no active process is holding it
-		_ = syscall.Flock(int(file.Fd()), syscall.LOCK_UN)
-	}
-
-	return false
+	return isFileLocked(file)
 }
 
 // DirSize returns total size in bytes of a directory recursively
@@ -116,7 +103,7 @@ func (s *Scanner) ScanAll() (map[string]*Conversation, *SystemStats, error) {
 	// 1. Query SQLite DB
 	dbPath := s.DBPath()
 	if _, err := os.Stat(dbPath); err == nil {
-		db, err := sql.Open("sqlite3", dbPath+"?mode=ro&_busy_timeout=5000")
+		db, err := sql.Open("sqlite", dbPath+"?mode=ro&_busy_timeout=5000")
 		if err == nil {
 			defer db.Close()
 

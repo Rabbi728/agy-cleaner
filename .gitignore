@@ -18,3 +18,5 @@ vendor/
 # Temporary files
 *.tmp
 *.log
+dist/
+*.exe

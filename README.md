@@ -390,7 +390,41 @@ make clean
 
 ### Direct Go Build
 ```bash
-go build -ldflags="-s -w" -o agy-cleaner .
+CGO_ENABLED=0 go build -ldflags="-s -w" -o agy-cleaner .
+```
+
+### Cross-Platform Builds (Windows / Linux / macOS)
+`agy-cleaner` uses the pure-Go SQLite driver (`modernc.org/sqlite`), so **no C compiler (CGO) is needed** and you can build for any OS from any machine.
+
+```bash
+# Build everything into ./dist/
+make build-all
+
+# Or only one platform
+make build-linux
+make build-windows
+```
+
+Output in `dist/`:
+
+| File | Platform |
+|---|---|
+| `agy-cleaner-linux-amd64`, `agy-cleaner-linux-arm64` | Linux |
+| `agy-cleaner-windows-amd64.exe`, `agy-cleaner-windows-arm64.exe` | Windows |
+| `agy-cleaner-darwin-amd64`, `agy-cleaner-darwin-arm64` | macOS |
+
+On Windows, run it from PowerShell / CMD:
+```powershell
+.\agy-cleaner-windows-amd64.exe list
+```
+The data directory defaults to `%USERPROFILE%\.gemini\antigravity-cli` (override with `--data-dir`).
+
+Active-session detection uses OS-specific file locks: `flock` on Linux/macOS ([lock_unix.go](internal/cleaner/lock_unix.go)) and `LockFileEx` on Windows ([lock_windows.go](internal/cleaner/lock_windows.go)).
+
+### Automated Releases
+Pushing a tag like `v1.0.0` triggers the GitHub Actions workflow ([release.yml](.github/workflows/release.yml)), which builds all binaries and attaches them to a GitHub Release:
+```bash
+git tag v1.0.0 && git push origin v1.0.0
 ```
 
 ---
