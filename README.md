@@ -253,9 +253,16 @@ agy-cleaner clean --orphans -y
 ```
 * **Function:** Purges all broken `0 B` records whose disk files are missing.
 
-#### Delete a Single Conversation by UUID
+#### Delete One or Multiple Conversations by UUID
 ```bash
+# Delete a single UUID
 agy-cleaner clean --id 3469a52f-5fad-4de1-83b5-cd9fe5021549 -y
+
+# Delete multiple UUIDs (comma or space separated)
+agy-cleaner clean --ids "3469a52f-5fad-4de1-83b5-cd9fe5021549, 6b43af38-0aa1-4c44-8bc2-ac622eabbdb7" -y
+
+# Delete multiple UUIDs directly as positional arguments
+agy-cleaner clean 3469a52f-5fad-4de1-83b5-cd9fe5021549 6b43af38-0aa1-4c44-8bc2-ac622eabbdb7 -y
 ```
 
 #### Delete ALL Conversations
@@ -298,7 +305,7 @@ agy-cleaner backup restore ~/.gemini/antigravity-cli/backups/backup_20261005_121
 | `--all` | | `list`, `clean` | In `list`: shows individual conversations. In `clean`: targets all stored conversations. |
 | `--keep-workspace <str>` | | `clean` | Deletes all conversations EXCEPT those matching this workspace. |
 | `--older-than <dur>` | | `clean` | Deletes conversations older than specified duration (e.g. `30d`, `7d`, `24h`). |
-| `--id <uuid>` | | `clean` | Deletes only the conversation matching this UUID. |
+| `--id, --ids <uuid,...>` | | `clean` | Deletes one or multiple conversation IDs (comma/space separated or positional arguments). |
 | `--orphans` | | `clean` | Targets only orphaned records (DB entries missing files or vice versa). |
 | `--dry-run` | | `clean` | Previews actions without deleting any files or records. |
 | `--yes` | `-y` | `clean` | Skips interactive `[y/N]` confirmation prompts. |

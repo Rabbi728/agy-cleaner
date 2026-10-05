@@ -23,6 +23,24 @@ func NewCleaner(scanner *Scanner) *Cleaner {
 	}
 }
 
+// ParseUUIDs extracts clean, unique UUIDs/IDs from strings separated by commas, spaces, or newlines
+func ParseUUIDs(inputs ...string) []string {
+	var result []string
+	seen := make(map[string]bool)
+	for _, in := range inputs {
+		replaced := strings.ReplaceAll(in, ",", " ")
+		fields := strings.Fields(replaced)
+		for _, f := range fields {
+			f = strings.TrimSpace(f)
+			if f != "" && !seen[f] {
+				seen[f] = true
+				result = append(result, f)
+			}
+		}
+	}
+	return result
+}
+
 // FindCandidates selects conversations that match the given CleanFilter criteria
 func (c *Cleaner) FindCandidates(filter CleanFilter) ([]*Conversation, []string, error) {
 	convMap, _, err := c.Scanner.ScanAll()

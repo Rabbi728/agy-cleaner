@@ -255,15 +255,21 @@ func (cli *InteractiveCLI) handleCleanOrphans() {
 }
 
 func (cli *InteractiveCLI) handleCleanByID() {
-	fmt.Print("  Enter full or partial Conversation ID (UUID): ")
-	id := cli.readLine()
-	if id == "" {
+	fmt.Print("  Enter Conversation ID(s) (separate multiple UUIDs with comma or space): ")
+	input := cli.readLine()
+	if input == "" {
 		fmt.Println(Colorize(Red, "  ID cannot be empty."))
 		return
 	}
 
+	ids := cleaner.ParseUUIDs(input)
+	if len(ids) == 0 {
+		fmt.Println(Colorize(Red, "  No valid IDs provided."))
+		return
+	}
+
 	filter := cleaner.CleanFilter{
-		ConversationIDs: []string{id},
+		ConversationIDs: ids,
 		RunVacuum:       true,
 		SkipBackup:      false,
 	}
@@ -277,11 +283,12 @@ func (cli *InteractiveCLI) handleCleanByID() {
 	PrintCleanPreview(candidates, skippedActive, false)
 
 	if len(candidates) == 0 {
-		fmt.Println(Colorize(Yellow, "  No matching conversation found."))
+		fmt.Println(Colorize(Yellow, "  No matching conversations found."))
 		return
 	}
 
-	if !cli.askConfirm("Are you sure you want to delete this conversation?") {
+	promptMsg := fmt.Sprintf("Are you sure you want to delete these %d conversation(s)?", len(candidates))
+	if !cli.askConfirm(promptMsg) {
 		fmt.Println(Colorize(Yellow, "  Operation canceled."))
 		return
 	}

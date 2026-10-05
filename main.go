@@ -27,6 +27,30 @@ func parseDuration(s string) (time.Duration, error) {
 	return time.ParseDuration(s)
 }
 
+// reorderArgs moves all flags (starting with '-') to the front so flag.FlagSet can parse them even if passed after positional args
+func reorderArgs(args []string) []string {
+	var flags []string
+	var positional []string
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		if strings.HasPrefix(arg, "-") {
+			flags = append(flags, arg)
+			// Check if flag takes a separate value argument
+			if !strings.Contains(arg, "=") && (arg == "-w" || arg == "--workspace" || arg == "--keep-workspace" ||
+				arg == "--older-than" || arg == "--id" || arg == "--ids" || arg == "-s" || arg == "--search" ||
+				arg == "-n" || arg == "--limit" || arg == "--data-dir") {
+				if i+1 < len(args) && !strings.HasPrefix(args[i+1], "-") {
+					flags = append(flags, args[i+1])
+					i++
+				}
+			}
+		} else {
+			positional = append(positional, arg)
+		}
+	}
+	return append(flags, positional...)
+}
+
 func main() {
 	var (
 		dataDirFlag = flag.String("data-dir", "", "Custom Antigravity data directory (default: ~/.gemini/antigravity-cli)")
@@ -93,7 +117,7 @@ func handleList(scanner *cleaner.Scanner, args []string) {
 	fs.IntVar(limit, "n", 50, "Limit (shorthand)")
 	showAll := fs.Bool("all", false, "Show detailed list of individual conversations")
 	jsonOutput := fs.Bool("json", false, "Output results in JSON format")
-	_ = fs.Parse(args)
+	_ = fs.Parse(reorderArgs(args))
 
 	// If extra argument like 'conversations' or 'convs' is given
 	if fs.NArg() > 0 {
@@ -151,7 +175,8 @@ func handleClean(c *cleaner.Cleaner, scanner *cleaner.Scanner, args []string) {
 	fs.StringVar(workspace, "w", "", "Workspace (shorthand)")
 	keepWS := fs.String("keep-workspace", "", "Delete ALL conversations EXCEPT this workspace")
 	olderThanStr := fs.String("older-than", "", "Delete conversations older than duration (e.g. 30d, 7d, 24h)")
-	id := fs.String("id", "", "Delete specific conversation ID (UUID)")
+	id := fs.String("id", "", "Delete specific conversation ID or multiple UUIDs (comma or space separated)")
+	ids := fs.String("ids", "", "Delete multiple conversation IDs (comma or space separated)")
 	orphansOnly := fs.Bool("orphans", false, "Clean only orphaned records and files")
 	all := fs.Bool("all", false, "Delete all stored conversations")
 	dryRun := fs.Bool("dry-run", false, "Preview deletions without modifying anything")
@@ -159,10 +184,21 @@ func handleClean(c *cleaner.Cleaner, scanner *cleaner.Scanner, args []string) {
 	fs.BoolVar(yes, "y", false, "Skip confirmation (shorthand)")
 	noBackup := fs.Bool("no-backup", false, "Skip automatic pre-cleanup backup")
 	force := fs.Bool("force", false, "Allow deleting active running sessions")
-	_ = fs.Parse(args)
+	_ = fs.Parse(reorderArgs(args))
 
-	if *workspace == "" && *keepWS == "" && *olderThanStr == "" && *id == "" && !*orphansOnly && !*all {
-		fmt.Println("Error: No filter specified. Specify --workspace, --older-than, --orphans, --id, or --all.")
+	var rawIDs []string
+	if *id != "" {
+		rawIDs = append(rawIDs, *id)
+	}
+	if *ids != "" {
+		rawIDs = append(rawIDs, *ids)
+	}
+	// Also accept positional UUIDs e.g.: agy-cleaner clean uuid1 uuid2 uuid3
+	rawIDs = append(rawIDs, fs.Args()...)
+	convIDs := cleaner.ParseUUIDs(rawIDs...)
+
+	if *workspace == "" && *keepWS == "" && *olderThanStr == "" && len(convIDs) == 0 && !*orphansOnly && !*all {
+		fmt.Println("Error: No filter specified. Specify --workspace, --older-than, --orphans, --id/--ids, or --all.")
 		fmt.Println("Run `agy-cleaner --help` for usage.")
 		os.Exit(1)
 	}
@@ -175,11 +211,6 @@ func handleClean(c *cleaner.Cleaner, scanner *cleaner.Scanner, args []string) {
 			fmt.Fprintf(os.Stderr, "Invalid duration '%s': %v\n", *olderThanStr, err)
 			os.Exit(1)
 		}
-	}
-
-	var convIDs []string
-	if *id != "" {
-		convIDs = append(convIDs, *id)
 	}
 
 	filter := cleaner.CleanFilter{
@@ -310,7 +341,7 @@ Clean Flags:
   -w, --workspace <str>       Delete conversations for workspace (e.g. -w Keya)
   --keep-workspace <str>      Delete all EXCEPT this workspace
   --older-than <duration>     Delete conversations older than duration (e.g. 30d, 7d)
-  --id <uuid>                 Delete specific conversation ID
+  --id, --ids <uuid,...>      Delete one or multiple conversation IDs (comma/space separated or positional)
   --orphans                   Clean only ghost/orphaned records and files
   --all                       Delete ALL conversations (except active sessions)
   --dry-run                   Preview what will be deleted without modifying anything
@@ -320,6 +351,8 @@ Clean Flags:
 
 List Flags:
   -w, --workspace <str>       Filter list by workspace
+  -s, --search <str>          Search by title, ID, or workspace keyword
+  -n, --limit <int>           Limit number of conversations to display (default: 50)
   --all                       List individual conversation records
   --json                      Output raw statistics as JSON
 
@@ -329,6 +362,10 @@ Examples:
 
   # See overview of workspaces & disk usage
   agy-cleaner list
+
+  # Delete multiple conversations by UUIDs
+  agy-cleaner clean --ids "uuid1, uuid2, uuid3"
+  agy-cleaner clean uuid1 uuid2 uuid3
 
   # Dry run: preview what would be deleted for workspace 'Keya'
   agy-cleaner clean -w Keya --dry-run
