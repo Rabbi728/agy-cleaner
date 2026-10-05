@@ -362,6 +362,8 @@ func (cli *InteractiveCLI) handleBackups() {
 	fmt.Println("\n  1. Create new backup now")
 	if len(backups) > 0 {
 		fmt.Println("  2. Restore from a backup")
+		fmt.Println("  3. Delete a backup")
+		fmt.Println("  4. Prune old backups (keep latest N)")
 	}
 	fmt.Println("  0. Back")
 	fmt.Print("\n  Select an option: ")
@@ -395,6 +397,42 @@ func (cli *InteractiveCLI) handleBackups() {
 			} else {
 				fmt.Println(Colorize(Green+Bold, "  Backup restored successfully!"))
 			}
+		}
+	case "3":
+		if len(backups) == 0 {
+			return
+		}
+		fmt.Print("  Enter backup number to delete: ")
+		numStr := cli.readLine()
+		n, err := strconv.Atoi(numStr)
+		if err != nil || n < 1 || n > len(backups) {
+			fmt.Println(Colorize(Red, "  Invalid selection."))
+			return
+		}
+		selected := backups[n-1]
+		if cli.askConfirm(fmt.Sprintf("Are you sure you want to delete backup '%s'?", selected.Name)) {
+			if err := bm.DeleteBackup(selected.Path); err != nil {
+				fmt.Printf("Error deleting backup: %v\n", err)
+			} else {
+				fmt.Println(Colorize(Green+Bold, "  Backup deleted successfully!"))
+			}
+		}
+	case "4":
+		if len(backups) == 0 {
+			return
+		}
+		fmt.Print("  How many recent backups do you want to keep? (e.g. 3, 5): ")
+		numStr := cli.readLine()
+		keep, err := strconv.Atoi(numStr)
+		if err != nil || keep < 0 {
+			fmt.Println(Colorize(Red, "  Invalid number."))
+			return
+		}
+		deleted, err := bm.PruneBackups(keep)
+		if err != nil {
+			fmt.Printf("Error pruning: %v\n", err)
+		} else {
+			fmt.Println(Colorize(Green+Bold, fmt.Sprintf("  Pruned successfully! %d old backup(s) removed (kept %d).", deleted, keep)))
 		}
 	}
 }

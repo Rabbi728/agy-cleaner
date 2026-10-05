@@ -152,6 +152,55 @@ func (bm *BackupManager) RestoreBackup(backupDir string) error {
 	return nil
 }
 
+// DeleteBackup removes a specific backup folder by name or path
+func (bm *BackupManager) DeleteBackup(target string) error {
+	backups, err := bm.ListBackups()
+	if err != nil {
+		return err
+	}
+
+	var targetPath string
+	for _, b := range backups {
+		if b.Name == target || b.Path == target || filepath.Base(b.Path) == target {
+			targetPath = b.Path
+			break
+		}
+	}
+
+	if targetPath == "" {
+		if _, err := os.Stat(target); err == nil {
+			targetPath = target
+		} else {
+			return fmt.Errorf("backup not found: %s", target)
+		}
+	}
+
+	return os.RemoveAll(targetPath)
+}
+
+// PruneBackups keeps only the newest keepCount backups and deletes older ones
+func (bm *BackupManager) PruneBackups(keepCount int) (int, error) {
+	if keepCount < 0 {
+		keepCount = 0
+	}
+	backups, err := bm.ListBackups()
+	if err != nil {
+		return 0, err
+	}
+
+	if len(backups) <= keepCount {
+		return 0, nil
+	}
+
+	deleted := 0
+	for i := keepCount; i < len(backups); i++ {
+		if err := os.RemoveAll(backups[i].Path); err == nil {
+			deleted++
+		}
+	}
+	return deleted, nil
+}
+
 func copyFile(src, dst string) error {
 	in, err := os.Open(src)
 	if err != nil {

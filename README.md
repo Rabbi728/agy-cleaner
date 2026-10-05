@@ -293,6 +293,19 @@ agy-cleaner backup restore ~/.gemini/antigravity-cli/backups/backup_20261005_121
 ```
 * **Function:** Replaces the current `conversation_summaries.db` and `history.jsonl` with the files from that backup.
 
+#### Delete a Specific Backup
+```bash
+agy-cleaner backup delete backup_20261005_134157_pre_clean
+```
+* **Function:** Removes a specific backup directory without opening a file manager.
+
+#### Prune Old Backups (Keep Latest N)
+```bash
+# Keep only the newest 3 backups, delete all older ones
+agy-cleaner backup prune 3
+```
+* **Function:** Automatically cleans up old backup directories, preserving only the most recent N copies.
+
 ---
 
 ## 5. Complete Flags Reference

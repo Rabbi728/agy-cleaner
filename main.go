@@ -317,8 +317,37 @@ func handleBackup(bm *cleaner.BackupManager, args []string) {
 		}
 		fmt.Println("Backup restored successfully!")
 
+	case "delete", "rm":
+		if len(args) < 2 {
+			fmt.Println("Usage: agy-cleaner backup delete <backup_path_or_name>")
+			os.Exit(1)
+		}
+		target := args[1]
+		if err := bm.DeleteBackup(target); err != nil {
+			fmt.Fprintf(os.Stderr, "Error deleting backup: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Printf("Backup '%s' deleted successfully!\n", target)
+
+	case "prune":
+		keep := 5
+		if len(args) > 1 {
+			var err error
+			keep, err = strconv.Atoi(args[1])
+			if err != nil || keep < 0 {
+				fmt.Println("Error: Invalid keep count. Example: agy-cleaner backup prune 5")
+				os.Exit(1)
+			}
+		}
+		deleted, err := bm.PruneBackups(keep)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error pruning backups: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Printf("Pruned %d old backup(s) successfully (kept newest %d).\n", deleted, keep)
+
 	default:
-		fmt.Println("Usage: agy-cleaner backup [create|list|restore]")
+		fmt.Println("Usage: agy-cleaner backup [create|list|restore|delete|prune]")
 	}
 }
 
